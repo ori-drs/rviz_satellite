@@ -61,6 +61,7 @@ public:
 protected Q_SLOTS:
   void updateAlpha();
   void updateTopic();
+  void updateReferenceFrame();
   void updateDrawUnder();
   void updateTileUrl();
   void updateZoom();
@@ -151,12 +152,15 @@ protected:
 
   // properties
   RosTopicProperty* topic_property_;
+  StringProperty* reference_frame_property_;
   StringProperty* tile_url_property_;
   IntProperty* zoom_property_;
   IntProperty* blocks_property_;
   FloatProperty* alpha_property_;
   Property* draw_under_property_;
 
+  // ENU aligned frame
+  std::string map_frame_;
   /// the alpha value of the tile's material
   float alpha_;
   /// determines which render queue to use

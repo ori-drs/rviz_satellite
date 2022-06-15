@@ -47,13 +47,19 @@ namespace rviz
  * Splitting this transform lookup is necessary to mitigate frame jitter.
  */
 
-std::string const AerialMapDisplay::MAP_FRAME = "map";
+// std::string const AerialMapDisplay::MAP_FRAME = "map";
 
 AerialMapDisplay::AerialMapDisplay() : Display()
 {
   topic_property_ =
       new RosTopicProperty("Topic", "", QString::fromStdString(ros::message_traits::datatype<sensor_msgs::NavSatFix>()),
                            "sensor_msgs::NavSatFix topic to subscribe to.", this, SLOT(updateTopic()));
+
+  reference_frame_property_ =
+      new StringProperty("Reference Frame", "enu", "The TF frame used for getting tiles from server (Should be ENU aligned).", this, SLOT(updateReferenceFrame()));
+  reference_frame_property_->setShouldBeSaved(true);
+  map_frame_ = reference_frame_property_->getStdString();
+
 
   alpha_property_ =
       new FloatProperty("Alpha", 0.7, "Amount of transparency to apply to the map.", this, SLOT(updateAlpha()));
@@ -299,6 +305,12 @@ void AerialMapDisplay::updateTopic()
   clearAll();
   createTileObjects();
   subscribe();
+}
+
+void AerialMapDisplay::updateReferenceFrame()
+{
+  // change the reference ENU frame
+  map_frame_ = reference_frame_property_->getStdString();
 }
 
 void AerialMapDisplay::clearAll()
@@ -647,7 +659,7 @@ void AerialMapDisplay::transformTileToMapFrame()
     // Use a real TfBuffer for looking up this transform. The FrameManager only supplies transform to/from the
     // currently selected RViz fixed-frame, which is of no help here.
     auto const tf_navsat_map =
-        tf_buffer_->lookupTransform(MAP_FRAME, ref_fix_->header.frame_id, ref_fix_->header.stamp, ros::Duration(0.1));
+        tf_buffer_->lookupTransform(map_frame_, ref_fix_->header.frame_id, ref_fix_->header.stamp, ros::Duration(0.1));
     auto const tf_pos = tf_navsat_map.transform.translation;
     t_navsat_map = Ogre::Vector3(tf_pos.x, tf_pos.y, tf_pos.z);
   }
@@ -687,7 +699,7 @@ void AerialMapDisplay::transformMapTileToFixedFrame()
   Ogre::Vector3 t_fixed_map;
 
   // get transform between map-frame and fixed-frame from the FrameManager
-  if (context_->getFrameManager()->getTransform(MAP_FRAME, ros::Time(), t_fixed_map, o_fixed_map))
+  if (context_->getFrameManager()->getTransform(map_frame_, ros::Time(), t_fixed_map, o_fixed_map))
   {
     setStatus(::rviz::StatusProperty::Ok, "Transform", "Transform OK");
 
@@ -701,14 +713,14 @@ void AerialMapDisplay::transformMapTileToFixedFrame()
   {
     // display error
     std::string error;
-    if (context_->getFrameManager()->transformHasProblems(MAP_FRAME, ros::Time(), error))
+    if (context_->getFrameManager()->transformHasProblems(map_frame_, ros::Time(), error))
     {
       setStatus(::rviz::StatusProperty::Error, "Transform", QString::fromStdString(error));
     }
     else
     {
       setStatus(::rviz::StatusProperty::Error, "Transform",
-                QString::fromStdString("Could not transform from [" + MAP_FRAME + "] to Fixed Frame [" +
+                QString::fromStdString("Could not transform from [" + map_frame_ + "] to Fixed Frame [" +
                                        fixed_frame_.toStdString() + "] for an unknown reason"));
     }
   }
